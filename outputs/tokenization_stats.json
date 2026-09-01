@@ -1,0 +1,296 @@
+{
+  "train": {
+    "encoder": {
+      "tokens_per_sequence": {
+        "min": 15,
+        "max": 1703,
+        "mean": 407.61375,
+        "median": 377,
+        "std": 258.4564548641366,
+        "p10": 78,
+        "p25": 218,
+        "p75": 563,
+        "p90": 749
+      },
+      "vocabulary": {
+        "total_tokens": 1630455,
+        "unique_tokens": 894,
+        "vocab_size": 1024,
+        "coverage_pct": 87.3046875,
+        "oov_count": 0,
+        "oov_rate_pct": 0.0
+      },
+      "most_frequent_tokens": [
+        {
+          "token_id": 18,
+          "frequency": 53896,
+          "frequency_pct": 3.305580344137066
+        },
+        {
+          "token_id": 53,
+          "frequency": 48016,
+          "frequency_pct": 2.944944816017615
+        },
+        {
+          "token_id": 110,
+          "frequency": 47111,
+          "frequency_pct": 2.88943883762508
+        },
+        {
+          "token_id": 108,
+          "frequency": 44173,
+          "frequency_pct": 2.709243738710973
+        },
+        {
+          "token_id": 87,
+          "frequency": 33855,
+          "frequency_pct": 2.0764142524632696
+        }
+      ]
+    },
+    "decoder": {
+      "tokens_per_sequence": {
+        "min": 8,
+        "max": 911,
+        "mean": 214.65575,
+        "median": 199,
+        "std": 134.30805911015727,
+        "p10": 43,
+        "p25": 116,
+        "p75": 296,
+        "p90": 392
+      },
+      "vocabulary": {
+        "total_tokens": 858623,
+        "unique_tokens": 820,
+        "vocab_size": 1024,
+        "coverage_pct": 80.078125,
+        "oov_count": 0,
+        "oov_rate_pct": 0.0
+      },
+      "most_frequent_tokens": [
+        {
+          "token_id": 260,
+          "frequency": 28347,
+          "frequency_pct": 3.3014489479084532
+        },
+        {
+          "token_id": 115,
+          "frequency": 14612,
+          "frequency_pct": 1.701794617661069
+        },
+        {
+          "token_id": 278,
+          "frequency": 13451,
+          "frequency_pct": 1.5665781140267614
+        },
+        {
+          "token_id": 264,
+          "frequency": 13346,
+          "frequency_pct": 1.5543492312691367
+        },
+        {
+          "token_id": 286,
+          "frequency": 11729,
+          "frequency_pct": 1.3660244368017163
+        }
+      ]
+    }
+  },
+  "val": {
+    "encoder": {
+      "tokens_per_sequence": {
+        "min": 18,
+        "max": 1858,
+        "mean": 464.354,
+        "median": 416,
+        "std": 274.44738782506204,
+        "p10": 150,
+        "p25": 262,
+        "p75": 623,
+        "p90": 856
+      },
+      "vocabulary": {
+        "total_tokens": 232177,
+        "unique_tokens": 894,
+        "vocab_size": 1024,
+        "coverage_pct": 87.3046875,
+        "oov_count": 0,
+        "oov_rate_pct": 0.0
+      },
+      "most_frequent_tokens": [
+        {
+          "token_id": 18,
+          "frequency": 7716,
+          "frequency_pct": 3.323326599964682
+        },
+        {
+          "token_id": 53,
+          "frequency": 6924,
+          "frequency_pct": 2.9822075399372032
+        },
+        {
+          "token_id": 110,
+          "frequency": 6669,
+          "frequency_pct": 2.872377539549568
+        },
+        {
+          "token_id": 108,
+          "frequency": 6244,
+          "frequency_pct": 2.689327538903509
+        },
+        {
+          "token_id": 87,
+          "frequency": 4947,
+          "frequency_pct": 2.130702007520125
+        }
+      ]
+    },
+    "decoder": {
+      "tokens_per_sequence": {
+        "min": 12,
+        "max": 1028,
+        "mean": 248.168,
+        "median": 220,
+        "std": 146.86506656111249,
+        "p10": 81,
+        "p25": 140,
+        "p75": 329,
+        "p90": 454
+      },
+      "vocabulary": {
+        "total_tokens": 124084,
+        "unique_tokens": 810,
+        "vocab_size": 1024,
+        "coverage_pct": 79.1015625,
+        "oov_count": 0,
+        "oov_rate_pct": 0.0
+      },
+      "most_frequent_tokens": [
+        {
+          "token_id": 260,
+          "frequency": 3808,
+          "frequency_pct": 3.068888817252829
+        },
+        {
+          "token_id": 115,
+          "frequency": 2260,
+          "frequency_pct": 1.8213468295670674
+        },
+        {
+          "token_id": 278,
+          "frequency": 2128,
+          "frequency_pct": 1.714967280229522
+        },
+        {
+          "token_id": 264,
+          "frequency": 1777,
+          "frequency_pct": 1.4320943876728667
+        },
+        {
+          "token_id": 286,
+          "frequency": 1710,
+          "frequency_pct": 1.3780987073272943
+        }
+      ]
+    }
+  },
+  "test": {
+    "encoder": {
+      "tokens_per_sequence": {
+        "min": 20,
+        "max": 1827,
+        "mean": 473.11,
+        "median": 450,
+        "std": 256.0514204217582,
+        "p10": 169,
+        "p25": 295,
+        "p75": 637,
+        "p90": 788
+      },
+      "vocabulary": {
+        "total_tokens": 236555,
+        "unique_tokens": 894,
+        "vocab_size": 1024,
+        "coverage_pct": 87.3046875,
+        "oov_count": 0,
+        "oov_rate_pct": 0.0
+      },
+      "most_frequent_tokens": [
+        {
+          "token_id": 18,
+          "frequency": 7818,
+          "frequency_pct": 3.304939654625774
+        },
+        {
+          "token_id": 53,
+          "frequency": 6775,
+          "frequency_pct": 2.864027393206654
+        },
+        {
+          "token_id": 110,
+          "frequency": 6742,
+          "frequency_pct": 2.8500771490773817
+        },
+        {
+          "token_id": 108,
+          "frequency": 6145,
+          "frequency_pct": 2.5977045507387286
+        },
+        {
+          "token_id": 87,
+          "frequency": 4838,
+          "frequency_pct": 2.0451903362854305
+        }
+      ]
+    },
+    "decoder": {
+      "tokens_per_sequence": {
+        "min": 11,
+        "max": 1021,
+        "mean": 251.674,
+        "median": 240,
+        "std": 136.75269549080193,
+        "p10": 89,
+        "p25": 158,
+        "p75": 338,
+        "p90": 418
+      },
+      "vocabulary": {
+        "total_tokens": 125837,
+        "unique_tokens": 810,
+        "vocab_size": 1024,
+        "coverage_pct": 79.1015625,
+        "oov_count": 0,
+        "oov_rate_pct": 0.0
+      },
+      "most_frequent_tokens": [
+        {
+          "token_id": 260,
+          "frequency": 3824,
+          "frequency_pct": 3.0388518480256206
+        },
+        {
+          "token_id": 115,
+          "frequency": 2287,
+          "frequency_pct": 1.8174304854692975
+        },
+        {
+          "token_id": 264,
+          "frequency": 2159,
+          "frequency_pct": 1.7157115951588167
+        },
+        {
+          "token_id": 278,
+          "frequency": 1799,
+          "frequency_pct": 1.4296272161605887
+        },
+        {
+          "token_id": 286,
+          "frequency": 1653,
+          "frequency_pct": 1.3136041069001962
+        }
+      ]
+    }
+  }
+}
