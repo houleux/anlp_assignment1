@@ -6,11 +6,6 @@ from typing import Optional
 
 from .positional import RotaryPositionalEmbedding
 
-## Using mac so no gpu available :(  
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-
-
-
 ## Scaled Dot Product Attention
 def scaled_dot_product_attention(q, k, v, mask=None):
     d_k = q.size()[-1]

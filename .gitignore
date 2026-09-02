@@ -217,8 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-data.nosync/
-
 .DS_Store
 
 .vscode/

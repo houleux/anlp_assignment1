@@ -92,11 +92,12 @@ def entropy_to_boundaries(
     surprise spike), rather than a fixed-size window. Position 0 of every
     sample always starts a patch. Padding positions never start a patch.
 
-    `threshold` is the one knob to tune: raise it for fewer, longer patches
-    (closer to the fixed-size baseline); lower it for more, shorter patches.
-    Calibrate empirically against your C1-C4 average tokens/sequence (see
-    earlier fairness discussion) so patch count is comparable across
-    configs rather than confounding the ablation with a length mismatch.
+    CAVEAT: this rule can only fire where entropy INCREASES, so the maximum
+    achievable patch density is capped by how many upward transitions exist
+    in the sequence — lowering `threshold` towards 0 cannot push past that
+    ceiling. If your target compression ratio needs denser patches than that
+    ceiling allows (as ours does — see `entropy_to_boundaries_topk` below),
+    use the top-k version instead, which has no such cap.
     """
     B, L = entropy.shape
     boundary = torch.zeros(B, L, dtype=torch.bool, device=entropy.device)
@@ -104,6 +105,44 @@ def entropy_to_boundaries(
     if L > 1:
         delta = entropy[:, 1:] - entropy[:, :-1]
         boundary[:, 1:] = delta > threshold
+    return boundary & byte_mask
+
+
+def entropy_to_boundaries_topk(
+    entropy: torch.Tensor,
+    byte_mask: torch.Tensor,
+    keep_fraction: float = 0.5,
+) -> torch.Tensor:
+    """Convert per-byte entropy (B, L) into a boolean patch-start mask (B, L)
+    by taking the top `keep_fraction` highest-entropy positions PER SAMPLE
+    (ranked among that sample's valid, non-padded bytes only) as patch
+    starts. Position 0 always starts a patch.
+
+    Unlike `entropy_to_boundaries` (delta-threshold), this has no structural
+    ceiling on patch density — `keep_fraction` maps directly and predictably
+    onto average patch count:
+
+        keep_fraction ≈ target_mean_patches / mean_sequence_length
+
+    which makes calibration a closed-form calculation rather than a blind
+    sweep, and is robust to the entropy model's absolute output scale (only
+    relative ranking within a sequence matters, not a fixed nats cutoff).
+    Prefer this over the delta-threshold version whenever your target patch
+    density is high (i.e. patches need to be short on average), which is the
+    case whenever the source alphabet compresses poorly under BPE relative
+    to the target -- exactly the situation on the cipher side here.
+    """
+    B, L = entropy.shape
+    boundary = torch.zeros(B, L, dtype=torch.bool, device=entropy.device)
+    boundary[:, 0] = True
+    for b in range(B):
+        valid_idx = byte_mask[b].nonzero(as_tuple=True)[0]
+        if valid_idx.numel() <= 1:
+            continue
+        k = max(1, int(round(valid_idx.numel() * keep_fraction)))
+        k = min(k, valid_idx.numel())
+        top_idx = entropy[b, valid_idx].topk(k).indices
+        boundary[b, valid_idx[top_idx]] = True
     return boundary & byte_mask
 
 
@@ -132,15 +171,21 @@ class DynamicByteLatentEncoder(nn.Module):
         latent_dim: int,
         vocab_size: int = 256,
         entropy_hidden_dim: int = 32,
-        entropy_threshold: float = 0.2,
+        boundary_mode: str = "topk",       # "topk" (recommended) or "delta"
+        keep_fraction: float = 0.68,        # used when boundary_mode == "topk"
+        entropy_threshold: float = 0.2,     # used when boundary_mode == "delta"
         max_patch_size: int = 16,
     ):
         super().__init__()
         if byte_dim <= 0 or latent_dim <= 0 or vocab_size <= 0 or max_patch_size <= 0:
             raise ValueError("byte_dim, latent_dim, vocab_size, and max_patch_size must be positive")
+        if boundary_mode not in ("topk", "delta"):
+            raise ValueError("boundary_mode must be 'topk' or 'delta'")
 
         self.vocab_size = vocab_size
         self.max_patch_size = max_patch_size
+        self.boundary_mode = boundary_mode
+        self.keep_fraction = keep_fraction
         self.entropy_threshold = entropy_threshold
 
         self.entropy_model = ByteEntropyModel(vocab_size, entropy_hidden_dim)
@@ -174,7 +219,10 @@ class DynamicByteLatentEncoder(nn.Module):
         # trained, just via `auxiliary_loss` in the training loop, not
         # through this path.
         entropy, _ = self.entropy_model(bytes_)
-        boundary = entropy_to_boundaries(entropy.detach(), byte_mask, self.entropy_threshold)
+        if self.boundary_mode == "topk":
+            boundary = entropy_to_boundaries_topk(entropy.detach(), byte_mask, self.keep_fraction)
+        else:
+            boundary = entropy_to_boundaries(entropy.detach(), byte_mask, self.entropy_threshold)
 
         patch_id = (torch.cumsum(boundary.long(), dim=1) - 1).clamp_min(0)   # (B, L), 0-indexed per row
         num_patches = patch_id.max(dim=1).values + 1                         # (B,)
@@ -416,6 +464,7 @@ LocalDecoder = ByteLatentDecoder
 __all__ = [
     "ByteEntropyModel",
     "entropy_to_boundaries",
+    "entropy_to_boundaries_topk",
     "DynamicByteLatentEncoder",
     "ByteLatentDecoder",
     "GlobalPatchTransformer",
