@@ -400,14 +400,17 @@ def train_one_config(
     total_train_batches = 0
 
     run = None
+    if use_wandb and wandb is None:
+        print("WandB is unavailable; continuing without WandB logging.")
     if use_wandb and wandb is not None:
         run = wandb.init(project="anlp-assignment-1", name=f"{model_name}-train", reinit=True)
-        wandb.config.update({
+        run.config.update({
             "model": model_name,
             "batch_size": batch_size,
             "lr": lr,
             "epochs": epochs,
         })
+        print(f"WandB logging enabled: {run.url}")
 
     best_path = output_dir / f"{model_name}_best.pt"
     latest_path = output_dir / f"{model_name}_latest.pt"
@@ -437,7 +440,7 @@ def train_one_config(
             update_peak_memory(peak_memory, memory_snapshot(device))
 
             if run is not None and batch_idx % 20 == 0:
-                wandb.log({
+                run.log({
                     f"{model_name}/train_batch_loss": float(loss.item()),
                     f"{model_name}/batch_seconds": batch_seconds,
                 }, step=total_train_batches)
@@ -453,7 +456,7 @@ def train_one_config(
         )
 
         if run is not None:
-            wandb.log({
+            run.log({
                 f"{model_name}/train_loss": avg_train_loss,
                 f"{model_name}/val_loss": val_loss,
                 f"{model_name}/lr": optimizer.param_groups[0]["lr"],
@@ -527,7 +530,12 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", type=str, default="outputs/checkpoints")
     parser.add_argument("--tokenizers-dir", type=str, default="tokenizers")
-    parser.add_argument("--wandb", action="store_true")
+    parser.add_argument(
+        "--wandb",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable WandB logging (default: enabled; use --no-wandb to disable).",
+    )
     parser.add_argument("--push-to-hub", action="store_true")
     parser.add_argument("--resume-from", type=str, default=None)
     args = parser.parse_args()

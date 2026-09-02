@@ -1,0 +1,102 @@
+{
+  "C1": {
+    "model_name": "C1",
+    "device": "cuda",
+    "epochs_completed": 5,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "parameter_count": 8162816,
+    "training_seconds": 860.8938916660001,
+    "training_minutes": 14.348231527766668,
+    "training_batches": 1250,
+    "samples_per_second": 23.231666751980367,
+    "units_per_second": 11244.461243959726,
+    "peak_memory_gb": {
+      "allocated_gb": 0.14497995376586914,
+      "reserved_gb": 9.294921875
+    },
+    "best_validation_loss": 5.037060230970383,
+    "checkpoint": "outputs/checkpoints/C1/C1_best.pt",
+    "latest_checkpoint": "outputs/checkpoints/C1/C1_latest.pt"
+  },
+  "C2": {
+    "model_name": "C2",
+    "device": "cuda",
+    "epochs_completed": 5,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "parameter_count": 8162816,
+    "training_seconds": 906.8946087159998,
+    "training_minutes": 15.114910145266663,
+    "training_batches": 1250,
+    "samples_per_second": 22.05327918788316,
+    "units_per_second": 10719.181596815788,
+    "peak_memory_gb": {
+      "allocated_gb": 0.14513444900512695,
+      "reserved_gb": 9.294921875
+    },
+    "best_validation_loss": 5.053526416420937,
+    "checkpoint": "outputs/checkpoints/C2/C2_best.pt",
+    "latest_checkpoint": "outputs/checkpoints/C2/C2_latest.pt"
+  },
+  "C3": {
+    "model_name": "C3",
+    "device": "cuda",
+    "epochs_completed": 5,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "parameter_count": 7373312,
+    "training_seconds": 843.5557474319999,
+    "training_minutes": 14.059262457199997,
+    "training_batches": 1250,
+    "samples_per_second": 23.709162151861488,
+    "units_per_second": 11429.6370208505,
+    "peak_memory_gb": {
+      "allocated_gb": 0.13283586502075195,
+      "reserved_gb": 9.294921875
+    },
+    "best_validation_loss": 5.2591628432273865,
+    "checkpoint": "outputs/checkpoints/C3/C3_best.pt",
+    "latest_checkpoint": "outputs/checkpoints/C3/C3_latest.pt"
+  },
+  "C4": {
+    "model_name": "C4",
+    "device": "cuda",
+    "epochs_completed": 5,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "parameter_count": 8157440,
+    "training_seconds": 864.0237981309997,
+    "training_minutes": 14.400396635516662,
+    "training_batches": 1250,
+    "samples_per_second": 23.14751057003604,
+    "units_per_second": 11256.875124318454,
+    "peak_memory_gb": {
+      "allocated_gb": 0.14403581619262695,
+      "reserved_gb": 9.294921875
+    },
+    "best_validation_loss": 5.027348026633263,
+    "checkpoint": "outputs/checkpoints/C4/C4_best.pt",
+    "latest_checkpoint": "outputs/checkpoints/C4/C4_latest.pt"
+  },
+  "C5": {
+    "model_name": "C5",
+    "device": "cuda",
+    "epochs_completed": 5,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "parameter_count": 3449281,
+    "training_seconds": 336.1097680289995,
+    "training_minutes": 5.601829467149992,
+    "training_batches": 1250,
+    "samples_per_second": 59.50437000770059,
+    "units_per_second": 60152.348795336446,
+    "peak_memory_gb": {
+      "allocated_gb": 0.06963586807250977,
+      "reserved_gb": 9.294921875
+    },
+    "best_validation_loss": 2.7070164009928703,
+    "checkpoint": "outputs/checkpoints/C5/C5_best.pt",
+    "latest_checkpoint": "outputs/checkpoints/C5/C5_latest.pt"
+  }
+}
