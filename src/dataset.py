@@ -9,7 +9,7 @@ import pickle
 from pathlib import Path
 from typing import Tuple, List, Dict, Optional
 from torch.utils.data import Dataset, DataLoader
-from models.bpe import BPETokenizer
+from .models.bpe import BPETokenizer
 
 
 # =====================================================================

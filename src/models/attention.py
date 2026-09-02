@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from typing import Optional
 
-from src.models.positional import RotaryPositionalEmbedding
+from .positional import RotaryPositionalEmbedding
 
 ## Using mac so no gpu available :(  
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
