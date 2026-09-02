@@ -40,7 +40,6 @@ from src.dataset import (
     create_byte_dataloaders,
     create_dataloaders,
 )
-from src.models.attention import MultiHeadAttention
 from src.models.blt import (
     ByteLatentDecoder,
     ByteLatentTransformer,
@@ -49,6 +48,7 @@ from src.models.blt import (
 )
 from src.models.bpe import BPETokenizer
 from src.models.transformer import Transformer, TransformerConfig
+from src.utils import evaluate_metrics
 
 try:
     import wandb
@@ -59,6 +59,13 @@ try:
     from huggingface_hub import HfApi
 except Exception:  # pragma: no cover
     HfApi = None
+
+try:
+    import matplotlib
+    matplotlib.use("Agg")  # headless-safe backend
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover
+    plt = None
 
 
 def set_seed(seed: int = 42) -> None:
@@ -188,8 +195,20 @@ def build_config_for_model(
             "byte_dim": 128,
             "latent_dim": 256,
             "vocab_size": 256,
-            "patch_size": 8,
-            "entropy_threshold": 0.2,
+            # Decoder-side (plaintext) local expansion factor. Calibrated to
+            # match C1-C4's decoder-side BPE compression: mean plaintext len
+            # 597.61 chars / mean decoder tokens 214.7 ≈ 2.78 -> round to 3.
+            # (Previously hardcoded to 8, which reduces to ~75 output units
+            # per sequence vs C1-C4's ~215 -- reopens the length-confound
+            # risk flagged earlier for the ablation.)
+            "patch_size": 3,
+            # Source-side (cipher) dynamic patching. FIX: this was previously
+            # named "entropy_threshold" (a no-op under the default
+            # boundary_mode="topk") -- renamed to keep_fraction, which is the
+            # parameter DynamicByteLatentEncoder actually reads under topk
+            # mode. Value from calibrate_entropy_threshold.py sweep.
+            "boundary_mode": "topk",
+            "keep_fraction": 0.7321,
             "max_patch_size": 16,
             "entropy_hidden_dim": 32,
             "global_layers": 4,
@@ -217,7 +236,8 @@ def build_model(model_name: str, src_tokenizer: Optional[BPETokenizer], tgt_toke
             latent_dim=cfg["latent_dim"],
             vocab_size=cfg["vocab_size"],
             entropy_hidden_dim=cfg["entropy_hidden_dim"],
-            entropy_threshold=cfg["entropy_threshold"],
+            boundary_mode=cfg["boundary_mode"],
+            keep_fraction=cfg["keep_fraction"],
             max_patch_size=cfg["max_patch_size"],
         )
         decoder = ByteLatentDecoder(
@@ -244,7 +264,21 @@ def build_model(model_name: str, src_tokenizer: Optional[BPETokenizer], tgt_toke
         if entropy_model_path.exists():
             state = torch.load(entropy_model_path, map_location=device)
             model.encoder.entropy_model.load_state_dict(state)
-            print(f"✓ Loaded pretrained entropy model from {entropy_model_path}")
+            # FIX: freeze after loading. Without this, the pretrained entropy
+            # scorer keeps updating throughout the main C5 run (it's still
+            # used in the loss below via auxiliary_entropy_loss unless you
+            # also strip that out), which makes average patch count drift
+            # across training -- exactly what pretrain-then-freeze was meant
+            # to avoid, and reopens a moving-target confound against C1-C4.
+            for p in model.encoder.entropy_model.parameters():
+                p.requires_grad_(False)
+            print(f"✓ Loaded pretrained entropy model from {entropy_model_path} (frozen)")
+        else:
+            print(
+                f"⚠ No pretrained entropy model found at {entropy_model_path}. "
+                "Run pretrain_entropy_model.py first -- an untrained entropy "
+                "scorer produces near-random patch boundaries."
+            )
         return model.to(device)
 
     raise ValueError(f"Unsupported model name: {model_name}")
@@ -263,12 +297,21 @@ def compute_loss_for_batch(model: nn.Module, batch: Dict[str, torch.Tensor], mod
 
         decoder_input = tgt_ids[:, :-1]
         decoder_target = tgt_ids[:, 1:]
-        decoder_valid = tgt_valid[:, :-1]
+        # Mask passed to the model reflects INPUT validity (correct: this is
+        # what decode() uses to build its internal causal/padding mask over
+        # the sequence actually being fed in).
+        decoder_input_valid = tgt_valid[:, :-1]
+        # Mask used to select loss terms reflects TARGET validity instead
+        # (FIX: previously reused decoder_input_valid here too, which is
+        # off-by-one from what's being predicted; it happened to work only
+        # because padding is contiguous and ignore_index=PAD_ID absorbed the
+        # one mismatched boundary position -- this makes it explicit/robust
+        # instead of relying on that coincidence).
+        decoder_target_valid = tgt_valid[:, 1:]
 
-        logits = model(src_ids, decoder_input, src_valid=src_valid, tgt_valid=decoder_valid)
-        valid_pos = decoder_valid.bool()
-        flat_logits = logits[valid_pos]
-        flat_targets = decoder_target[valid_pos]
+        logits = model(src_ids, decoder_input, src_valid=src_valid, tgt_valid=decoder_input_valid)
+        flat_logits = logits[decoder_target_valid]
+        flat_targets = decoder_target[decoder_target_valid]
         return F.cross_entropy(flat_logits, flat_targets, ignore_index=SpecialTokens.PAD_ID)
 
     if model_name == "C5":
@@ -281,9 +324,15 @@ def compute_loss_for_batch(model: nn.Module, batch: Dict[str, torch.Tensor], mod
         flat_logits = logits[tgt_valid]
         flat_targets = tgt_bytes[tgt_valid]
 
-        loss = F.cross_entropy(flat_logits, flat_targets)
-        entropy_aux = model.auxiliary_entropy_loss(src_bytes, src_mask)
-        return loss + 0.1 * entropy_aux
+        # FIX: no more auxiliary entropy loss here. The entropy model is
+        # pretrained + frozen (see build_model), so there's nothing left to
+        # backprop into -- computing and adding entropy_aux would just waste
+        # a forward pass through the entropy model for a term that
+        # contributes no gradient. If you deliberately want to keep
+        # fine-tuning the entropy scorer jointly instead of freezing it,
+        # remove the requires_grad_(False) call in build_model AND restore
+        # this term -- but note that reopens the patch-count drift issue.
+        return F.cross_entropy(flat_logits, flat_targets)
 
     raise ValueError(f"Unsupported model_name: {model_name}")
 
@@ -327,6 +376,28 @@ def save_checkpoint(
     }, path)
 
 
+def format_metrics_line(prefix: str, metrics: Dict[str, Any]) -> str:
+    parts = [f"n={metrics.get('n_samples', 0)}"]
+    for key in ("bit_level_accuracy", "sequence_accuracy", "levenshtein_distance", "bleu", "rouge1", "rougeL"):
+        val = metrics.get(key)
+        if val is None:
+            continue
+        parts.append(f"{key}={val:.3f}")
+    return f"{prefix} | " + " | ".join(parts)
+
+
+def log_metrics_to_wandb(run, model_name: str, split: str, metrics: Dict[str, Any], step: int) -> None:
+    if run is None:
+        return
+    payload = {}
+    for key in ("bit_level_accuracy", "sequence_accuracy", "levenshtein_distance", "bleu", "rouge1", "rougeL"):
+        val = metrics.get(key)
+        if val is not None:
+            payload[f"{model_name}/{split}_{key}"] = val
+    if payload:
+        run.log(payload, step=step)
+
+
 def update_benchmark_file(path: Path, result: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     benchmarks = {}
@@ -336,6 +407,115 @@ def update_benchmark_file(path: Path, result: Dict[str, Any]) -> None:
     benchmarks[result["model_name"]] = result
     with path.open("w") as file:
         json.dump(benchmarks, file, indent=2)
+
+
+def _bar_chart(
+    model_names: list,
+    values: list,
+    title: str,
+    ylabel: str,
+    out_path: Path,
+    value_fmt: str = "{:.3f}",
+) -> None:
+    """Save a single bar chart comparing `values` across `model_names`."""
+    fig, ax = plt.subplots(figsize=(max(6, len(model_names) * 1.5), 5))
+    bars = ax.bar(model_names, values, color=plt.cm.tab10.colors[: len(model_names)])
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel("Model")
+    ax.grid(axis="y", linestyle="--", alpha=0.4)
+    for bar, val in zip(bars, values):
+        ax.annotate(
+            value_fmt.format(val),
+            xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()),
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            fontsize=9,
+        )
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def generate_comparison_plots(benchmark_path: Path, results_dir: Path) -> None:
+    """Read benchmarks.json and save one comparison bar chart per metric,
+    with every trained model that reports that metric on the same chart."""
+    if plt is None:
+        print("matplotlib is unavailable; skipping comparison plots.")
+        return
+    if not benchmark_path.exists():
+        print(f"No benchmark file found at {benchmark_path}; skipping comparison plots.")
+        return
+
+    with benchmark_path.open() as file:
+        benchmarks = json.load(file)
+    if not benchmarks:
+        print("Benchmark file is empty; skipping comparison plots.")
+        return
+
+    preferred_order = ["C1", "C2", "C3", "C4", "C5"]
+    model_names = [m for m in preferred_order if m in benchmarks]
+    model_names += [m for m in benchmarks if m not in model_names]
+
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Top-level scalar metrics (present directly on the result dict).
+    scalar_metrics = [
+        ("best_validation_loss", "Best Validation Loss", "loss", "{:.4f}"),
+        ("training_minutes", "Total Training Time", "minutes", "{:.1f}"),
+        ("parameter_count", "Model Size", "parameters", "{:,.0f}"),
+        ("samples_per_second", "Training Throughput", "samples / sec", "{:.1f}"),
+        ("units_per_second", "Training Throughput", "units / sec (tokens or bytes)", "{:.1f}"),
+    ]
+    for key, title, ylabel, fmt in scalar_metrics:
+        names, values = [], []
+        for m in model_names:
+            val = benchmarks[m].get(key)
+            if val is not None:
+                names.append(m)
+                values.append(val)
+        if values:
+            _bar_chart(names, values, f"{title} by Model", ylabel, results_dir / f"{key}.png", fmt)
+
+    # Section-4 test-set metrics (nested under "test_metrics").
+    test_metric_specs = [
+        ("bit_level_accuracy", "Test Bit-Level Accuracy", "accuracy", "{:.3f}"),
+        ("sequence_accuracy", "Test Sequence Accuracy", "accuracy", "{:.3f}"),
+        ("levenshtein_distance", "Test Levenshtein Distance", "distance", "{:.2f}"),
+        ("bleu", "Test BLEU", "BLEU", "{:.3f}"),
+        ("rouge1", "Test ROUGE-1", "ROUGE-1", "{:.3f}"),
+        ("rougeL", "Test ROUGE-L", "ROUGE-L", "{:.3f}"),
+    ]
+    for key, title, ylabel, fmt in test_metric_specs:
+        names, values = [], []
+        for m in model_names:
+            test_metrics = benchmarks[m].get("test_metrics") or {}
+            val = test_metrics.get(key)
+            if val is not None:
+                names.append(m)
+                values.append(val)
+        if values:
+            _bar_chart(names, values, f"{title} by Model", ylabel, results_dir / f"test_{key}.png", fmt)
+
+    # Peak memory (nested under "peak_memory_gb"; keys vary by device type,
+    # e.g. cuda has allocated_gb/reserved_gb, mps has allocated_gb/driver_allocated_gb).
+    memory_keys = set()
+    for m in model_names:
+        memory_keys.update((benchmarks[m].get("peak_memory_gb") or {}).keys())
+    for key in sorted(memory_keys):
+        names, values = [], []
+        for m in model_names:
+            peak_memory = benchmarks[m].get("peak_memory_gb") or {}
+            val = peak_memory.get(key)
+            if val is not None:
+                names.append(m)
+                values.append(val)
+        if values:
+            label = key.replace("_", " ").title()
+            _bar_chart(names, values, f"Peak {label} by Model", "GB", results_dir / f"peak_memory_{key}.png", "{:.3f}")
+
+    print(f"✓ Saved comparison plots to {results_dir}")
 
 
 def train_one_config(
@@ -456,11 +636,19 @@ def train_one_config(
         )
 
         if run is not None:
+            # FIX: log epoch-level metrics against the SAME monotonic step
+            # counter as batch-level logs (total_train_batches), not against
+            # `epoch` -- wandb requires non-decreasing step values across all
+            # log calls in a run, and mixing "epoch number" with "cumulative
+            # batch count" as two different step sequences in the same run
+            # makes the epoch-level points go backwards after the first few
+            # batches, so wandb drops or warns on them.
             run.log({
                 f"{model_name}/train_loss": avg_train_loss,
                 f"{model_name}/val_loss": val_loss,
                 f"{model_name}/lr": optimizer.param_groups[0]["lr"],
-            }, step=epoch)
+                f"{model_name}/epoch": epoch,
+            }, step=total_train_batches)
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -469,6 +657,18 @@ def train_one_config(
 
         save_checkpoint(latest_path, model, optimizer, scheduler, model_name, epoch, val_loss, best_val_loss)
         print(f"✓ Saved resumable checkpoint to {latest_path}")
+
+    # Test-set evaluation, greedy decoding, capped at 2 batches -- full
+    # test-set eval was taking >10 min per model, so this trades exact
+    # Section-4 numbers for a fast approximate check. Bump max_batches back
+    # up (or set to None) if you need the true final numbers again.
+    print(f"\n==== Final test-set evaluation: {model_name} ====")
+    test_metrics = evaluate_metrics(
+        model, loaders["test"], model_name, device,
+        tgt_tokenizer=decoder_tokenizer, max_batches=2,
+    )
+    print(format_metrics_line(f"  test", test_metrics))
+    log_metrics_to_wandb(run, model_name, "test", test_metrics, total_train_batches)
 
     if run is not None:
         run.finish()
@@ -510,6 +710,7 @@ def train_one_config(
         "best_validation_loss": best_val_loss,
         "checkpoint": str(best_path),
         "latest_checkpoint": str(latest_path),
+        "test_metrics": test_metrics,
     }
     if benchmark_path is not None:
         update_benchmark_file(benchmark_path, result)
@@ -524,11 +725,12 @@ def train_one_config(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train all ANLP assignment models.")
     parser.add_argument("--model", choices=["all", "C1", "C2", "C3", "C4", "C5"], default="all")
-    parser.add_argument("--epochs", type=int, default=2)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=5)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", type=str, default="outputs/checkpoints")
+    parser.add_argument("--results-dir", type=str, default="outputs/results")
     parser.add_argument("--tokenizers-dir", type=str, default="tokenizers")
     parser.add_argument(
         "--wandb",
@@ -578,6 +780,8 @@ def main() -> None:
             resume_from=Path(args.resume_from) if args.resume_from else None,
             benchmark_path=benchmark_path,
         )
+
+    generate_comparison_plots(benchmark_path, Path(args.results_dir))
 
 
 if __name__ == "__main__":

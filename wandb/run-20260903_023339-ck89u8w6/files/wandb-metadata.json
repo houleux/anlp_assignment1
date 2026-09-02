@@ -1,0 +1,38 @@
+{
+  "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "python": "CPython 3.13.14",
+  "startedAt": "2026-09-02T21:03:39.486913Z",
+  "program": "/Users/rithvik/Documents/sem_7/anlp/assignments/assignment-1/assignment1/src/train.py",
+  "codePath": "src/train.py",
+  "codePathLocal": "src/train.py",
+  "git": {
+    "remote": "https://github.com/houleux/anlp_assignment1.git",
+    "commit": "8f2a418f3d397df76847211279aaaeca204b0d8a"
+  },
+  "email": "sairithvik.achutuni@students.iiit.ac.in",
+  "root": "/Users/rithvik/Documents/sem_7/anlp/assignments/assignment-1/assignment1",
+  "host": "Rithviks-MacBook-Pro.local",
+  "executable": "/opt/anaconda3/envs/lma/bin/python",
+  "cpu_count": 12,
+  "cpu_count_logical": 12,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "307105792000"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M2 Pro",
+    "ecpuCores": 4,
+    "pcpuCores": 8,
+    "gpuCores": 19,
+    "memoryGb": 16,
+    "swapTotalBytes": "5368709120",
+    "ramTotalBytes": "17179869184",
+    "macModel": "Mac14,10"
+  },
+  "writerId": "q8whwqatqbdknv2ks8qo3atbxxy5r740"
+}

@@ -1,0 +1,61 @@
+_wandb:
+    value:
+        cli_version: 0.27.2
+        e:
+            q8whwqatqbdknv2ks8qo3atbxxy5r740:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 19
+                    macModel: Mac14,10
+                    memoryGb: 16
+                    name: Apple M2 Pro
+                    pcpuCores: 8
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "5368709120"
+                codePath: src/train.py
+                codePathLocal: src/train.py
+                cpu_count: 12
+                cpu_count_logical: 12
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "307105792000"
+                email: sairithvik.achutuni@students.iiit.ac.in
+                executable: /opt/anaconda3/envs/lma/bin/python
+                git:
+                    commit: 8f2a418f3d397df76847211279aaaeca204b0d8a
+                    remote: https://github.com/houleux/anlp_assignment1.git
+                host: Rithviks-MacBook-Pro.local
+                memory:
+                    total: "17179869184"
+                os: macOS-26.6.2-arm64-arm-64bit-Mach-O
+                program: /Users/rithvik/Documents/sem_7/anlp/assignments/assignment-1/assignment1/src/train.py
+                python: CPython 3.13.14
+                root: /Users/rithvik/Documents/sem_7/anlp/assignments/assignment-1/assignment1
+                startedAt: "2026-09-02T21:03:39.486913Z"
+                writerId: q8whwqatqbdknv2ks8qo3atbxxy5r740
+        m: []
+        python_version: 3.13.14
+        t:
+            "1":
+                - 1
+                - 49
+            "2":
+                - 1
+                - 49
+            "3":
+                - 13
+            "4": 3.13.14
+            "5": 0.27.2
+            "10":
+                - 20
+            "12": 0.27.2
+            "13": darwin-arm64
+batch_size:
+    value: 16
+epochs:
+    value: 5
+lr:
+    value: 0.0001
+model:
+    value: C1
